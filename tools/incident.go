@@ -264,6 +264,15 @@ func getIncident(ctx context.Context, args GetIncidentParams) (*IncidentResult, 
 		return nil, fmt.Errorf("get incident by ID: %w", err)
 	}
 
+	// The upstream RPC-style API returns HTTP 200 with a zero-value Incident
+	// (no Error field set) for an ID that doesn't exist, rather than a 404 or
+	// populated Error — the generated client has no way to detect this, so
+	// every real incident always has a non-empty ID, which a not-found
+	// response never does.
+	if incidentResp.Incident.IncidentID == "" {
+		return nil, fmt.Errorf("incident %q not found", args.ID)
+	}
+
 	return newIncidentResult(ctx, c, &incidentResp.Incident, true)
 }
 
