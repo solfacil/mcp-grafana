@@ -27,14 +27,26 @@ type GetAnnotationsInput struct {
 	MatchAny     *bool    `json:"matchAny,omitempty" jsonschema:"description=If true\\, match any tag (OR). If false\\, match all tags (AND). Default: false"`
 }
 
+// defaultAnnotationsLimit matches the "default 100" advertised in
+// GetAnnotationsInput.Limit's schema description, which was never actually
+// applied: a nil Limit passed straight through to the Grafana API client as
+// "no limit", so an unfiltered call could return far more than documented.
+const defaultAnnotationsLimit int64 = 100
+
 // getAnnotations retrieves Grafana annotations using filters.
 func getAnnotations(ctx context.Context, args GetAnnotationsInput) (*annotations.GetAnnotationsOK, error) {
 	c := mcpgrafana.GrafanaClientFromContext(ctx)
 
+	limit := args.Limit
+	if limit == nil {
+		defaultLimit := defaultAnnotationsLimit
+		limit = &defaultLimit
+	}
+
 	req := annotations.GetAnnotationsParams{
 		From:         args.From,
 		To:           args.To,
-		Limit:        args.Limit,
+		Limit:        limit,
 		AlertUID:     args.AlertUID,
 		DashboardUID: args.DashboardUID,
 		PanelID:      args.PanelID,

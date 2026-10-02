@@ -376,6 +376,27 @@ func TestCompactLogEntries(t *testing.T) {
 	})
 }
 
+func TestResolveLokiFormat(t *testing.T) {
+	tests := []struct {
+		name            string
+		requestedFormat string
+		limit           int
+		want            string
+	}{
+		{"unset, small limit stays full", "", 10, ""},
+		{"unset, at threshold stays full", "", compactFormatThreshold, ""},
+		{"unset, above threshold switches to compact", "", compactFormatThreshold + 1, "compact"},
+		{"unset, large limit switches to compact", "", 1000, "compact"},
+		{"explicit full above threshold is respected", "full", 1000, "full"},
+		{"explicit compact below threshold is respected", "compact", 5, "compact"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, resolveLokiFormat(tt.requestedFormat, tt.limit))
+		})
+	}
+}
+
 func TestQueryLokiLogsFormatValidation(t *testing.T) {
 	// Unknown format values must be rejected before any backend call, so a typo
 	// can't silently fall back to full output. Datasource resolution happens

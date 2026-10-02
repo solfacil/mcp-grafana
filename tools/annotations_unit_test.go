@@ -60,6 +60,41 @@ func TestGetAnnotations_UsesCorrectQueryParams(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestGetAnnotations_DefaultsLimitTo100(t *testing.T) {
+	// The schema says "default 100" but a nil Limit used to pass straight
+	// through as "no limit" on the Grafana API call.
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "100", r.URL.Query().Get("limit"))
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode([]interface{}{})
+	}))
+	defer server.Close()
+
+	ctx := mockCtxWithClient(server)
+
+	_, err := getAnnotations(ctx, GetAnnotationsInput{})
+	require.NoError(t, err)
+}
+
+func TestGetAnnotations_ExplicitLimitIsNotOverridden(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "5", r.URL.Query().Get("limit"))
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		_ = json.NewEncoder(w).Encode([]interface{}{})
+	}))
+	defer server.Close()
+
+	ctx := mockCtxWithClient(server)
+	limit := int64(5)
+
+	_, err := getAnnotations(ctx, GetAnnotationsInput{Limit: &limit})
+	require.NoError(t, err)
+}
+
 func TestGetAnnotations_PropagatesError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
